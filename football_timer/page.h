@@ -40,7 +40,7 @@ h1{font-size:18px;margin:0;white-space:nowrap}
 .bar{height:10px;border-radius:99px;background:rgba(255,255,255,.3);overflow:hidden}
 .bar>div{height:100%;background:#fff;width:100%}
 
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.wide{display:block;width:100%;margin-top:14px}
 button{font:inherit;border:0;border-radius:14px;padding:16px 12px;font-weight:700;cursor:pointer;
   background:var(--card);color:var(--text);border:1px solid var(--line)}
 button:active{transform:scale(.98)}
@@ -90,10 +90,6 @@ button:disabled{opacity:.4}
     <div class="bar"><div id="barFill"></div></div>
   </section>
 
-  <div class="row">
-    <button id="armBtn" data-cmd="arm">Arm</button>
-    <button id="startBtn" data-cmd="start">Start by hand</button>
-  </div>
 
   <section class="card">
     <h2>Seconds to score</h2>
@@ -116,6 +112,8 @@ button:disabled{opacity:.4}
       <button id="testPhone">Test phone sound</button>
     </div>
   </section>
+
+  <button id="startBtn" class="wide" data-cmd="start">Start by hand</button>
 </main>
 
 <script>
@@ -193,11 +191,11 @@ function apply(s) {
 function heroInfo() {
   if (!online && !S) return ['wait', 'Connecting…', 'Join the Wi-Fi “FootballTimer”'];
   switch (S.st) {
-    case 'idle':    return ['', 'Paused', 'Tap Arm or press the knob'];
+    case 'idle':    return ['', 'Paused', 'Press the knob on the box to arm'];
     case 'armed':   return S.ready ? ['ready', 'Ready', 'Dribble past the sensor']
                                    : ['wait', 'Waiting', 'Clear the sensor…'];
     case 'running': return ['run', 'Go!', 'Score!'];
-    default:        return ['bad', 'Time up', S.set.rearm ? 'Re-arming…' : 'Tap Arm or press the knob'];
+    default:        return ['bad', 'Time up', S.set.rearm ? 'Re-arming…' : 'Press the knob on the box to arm'];
   }
 }
 
@@ -210,9 +208,6 @@ function renderStatic() {
 
   const running = S.st === 'running';
   $('startBtn').disabled = running;
-  const paused = S.st === 'idle';
-  $('armBtn').textContent = paused ? 'Arm' : 'Pause';
-  $('armBtn').dataset.cmd = paused ? 'arm' : 'pause';
 
   $('durVal').textContent = S.set.dur;
   $('minus').disabled = running || S.set.dur <= 1;
