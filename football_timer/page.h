@@ -103,7 +103,6 @@ button:disabled{opacity:.4}
 
   <section class="card">
     <h2>Options</h2>
-    <label class="toggle">Re-arm automatically <input type="checkbox" id="optRearm"></label>
     <label class="toggle">Beep on the last 3 seconds <input type="checkbox" id="optTicks"></label>
     <label class="toggle">Buzzer on the box <input type="checkbox" id="optBuzz"></label>
     <label class="toggle">Sound on this phone <input type="checkbox" id="optPhone"></label>
@@ -195,7 +194,7 @@ function heroInfo() {
     case 'armed':   return S.ready ? ['ready', 'Ready', 'Dribble past the sensor']
                                    : ['wait', 'Waiting', 'Clear the sensor…'];
     case 'running': return ['run', 'Go!', 'Score!'];
-    default:        return ['bad', 'Time up', S.set.rearm ? 'Re-arming…' : 'Press the knob on the box to arm'];
+    default:        return ['bad', 'Time up', 'Ready again in a moment…'];
   }
 }
 
@@ -214,7 +213,6 @@ function renderStatic() {
   $('plus').disabled = running || S.set.dur >= S.max;
   $('lockNote').textContent = running ? 'Locked while the clock runs.' : 'You can also turn the knob on the box (1–' + S.max + ' s).';
 
-  $('optRearm').checked = S.set.rearm;
   $('optTicks').checked = S.set.ticks;
   $('optBuzz').checked = S.set.buzz;
 
@@ -248,7 +246,6 @@ document.addEventListener('click', e => {
 });
 $('minus').onclick = () => S && setting('dur', S.set.dur - 1);
 $('plus').onclick  = () => S && setting('dur', S.set.dur + 1);
-$('optRearm').onchange = e => setting('rearm', e.target.checked ? 1 : 0);
 $('optTicks').onchange = e => setting('ticks', e.target.checked ? 1 : 0);
 $('optBuzz').onchange  = e => setting('buzz',  e.target.checked ? 1 : 0);
 $('optPhone').onchange = e => {

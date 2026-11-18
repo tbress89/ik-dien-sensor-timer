@@ -147,7 +147,7 @@ No extra libraries are needed.
 | Press | Pause ↔ arm |
 | Hold 1 s | Start the timer by hand (handy for testing) |
 
-After each attempt, the box re-arms by itself after 2.5 seconds (you can turn this off on the phone).
+After time runs out, the box is ready again by itself after 2.5 seconds, as soon as nothing is in front of the sensor.
 
 **Beeps:** short beep = start, ticks on the last 3 seconds, long beep = time up. A tiny beep means the box is ready.
 

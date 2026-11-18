@@ -51,7 +51,7 @@ const bool ENCODER_REVERSE = false;
 const uint8_t  MAX_SECONDS       = 9;    // one digit -> 1..9 s
 const uint32_t TRIGGER_STABLE_MS = 5;    // sensor must see something this long
 const uint32_t ARM_CLEAR_MS      = 1000; // sensor must be clear this long before it can trigger
-const uint32_t REARM_DELAY_MS    = 2500; // pause after an attempt before auto re-arm
+const uint32_t REARM_DELAY_MS    = 2500; // after time up, wait this long, then get ready again
 const uint32_t LONG_PRESS_MS     = 1000; // hold the knob this long = manual start
 const uint32_t ADJUST_SHOW_MS    = 2000; // after turning the knob: blink, then save
 
@@ -75,7 +75,6 @@ const char* stateName(State s) {
 // ---- settings (saved in flash) ----
 struct Settings {
   uint8_t durationS = 5;
-  bool autoRearm = true;
   bool ticks = true;     // beep on the last 3 seconds
   bool buzzer = true;    // buzzer on the device
 } cfg;
@@ -328,7 +327,7 @@ void updateLogic() {
     }
 
     case ST_DONE:
-      if (cfg.autoRearm && now - doneAt >= REARM_DELAY_MS) setArmed();
+      if (now - doneAt >= REARM_DELAY_MS) setArmed();
       break;
   }
 }
@@ -373,7 +372,6 @@ void updateDisplay() {
 void loadSettings() {
   prefs.begin("ftimer", true);
   cfg.durationS = prefs.getUChar("dur", 5);
-  cfg.autoRearm = prefs.getBool("rearm", true);
   cfg.ticks     = prefs.getBool("ticks", true);
   cfg.buzzer    = prefs.getBool("buzz", true);
   prefs.end();
@@ -383,7 +381,6 @@ void loadSettings() {
 void saveSettings() {
   prefs.begin("ftimer", false);
   prefs.putUChar("dur", cfg.durationS);
-  prefs.putBool("rearm", cfg.autoRearm);
   prefs.putBool("ticks", cfg.ticks);
   prefs.putBool("buzz", cfg.buzzer);
   prefs.end();
@@ -416,7 +413,6 @@ String stateJson() {
   j += ",\"ev\":";      j += eventId;
   j += ",\"evt\":\"";   j += eventType;
   j += "\",\"set\":{\"dur\":"; j += cfg.durationS;
-  j += ",\"rearm\":";   j += cfg.autoRearm ? "true" : "false";
   j += ",\"ticks\":";   j += cfg.ticks ? "true" : "false";
   j += ",\"buzz\":";    j += cfg.buzzer ? "true" : "false";
   j += "}}";
@@ -446,7 +442,6 @@ void handleSettings() {
     return;
   }
   if (server.hasArg("dur"))   cfg.durationS = constrain(server.arg("dur").toInt(), 1, (long)MAX_SECONDS);
-  if (server.hasArg("rearm")) cfg.autoRearm = server.arg("rearm") == "1";
   if (server.hasArg("ticks")) cfg.ticks     = server.arg("ticks") == "1";
   if (server.hasArg("buzz"))  cfg.buzzer    = server.arg("buzz") == "1";
   saveSettings();
