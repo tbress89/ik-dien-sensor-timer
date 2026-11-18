@@ -1,0 +1,8 @@
+# Arduino / PlatformIO build output
+build/
+.pio/
+*.bin
+*.elf
+
+# macOS
+.DS_Store
