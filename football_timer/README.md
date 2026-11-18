@@ -3,7 +3,7 @@
 A player dribbles past the sensor → a countdown starts → score before it hits zero.
 
 - **On the box:** a 1-digit display shows the seconds, a knob sets them (1–9 s), a buzzer beeps.
-- **On the phone (optional):** live countdown, GOAL / MISS buttons, stats and a loud horn.
+- **On the phone (optional):** live countdown, settings and a loud horn.
 
 ---
 
@@ -137,8 +137,7 @@ No extra libraries are needed.
 | `5` (steady) | **Ready.** Dribble past the sensor. |
 | `-` | Waiting: something is in front of the sensor. Clear it for 1 second. |
 | `4, 3, 2, 1` | Counting down. |
-| `0` blinking | Time's up (or MISS was tapped). |
-| `G` blinking | GOAL was tapped on the phone. |
+| `0` blinking | Time's up. |
 | `P` | Paused. The sensor does nothing. |
 | digit blinking fast | You're turning the knob to set the seconds. |
 
@@ -150,7 +149,7 @@ No extra libraries are needed.
 
 After each attempt, the box re-arms by itself after 2.5 seconds (you can turn this off on the phone).
 
-**Beeps:** short beep = start, ticks on the last 3 seconds, long beep = time up, three beeps = goal. A tiny beep means the box is ready.
+**Beeps:** short beep = start, ticks on the last 3 seconds, long beep = time up. A tiny beep means the box is ready.
 
 ### The phone
 
@@ -158,7 +157,7 @@ After each attempt, the box re-arms by itself after 2.5 seconds (you can turn th
    Your phone may warn "no internet". Choose to **stay connected**.
 2. Open **http://192.168.4.1** in the browser.
 3. Tap **Start** (this turns on the phone sound; on iPhone the ringer switch must be on).
-4. Tap **GOAL** or **MISS** while the clock runs. The page keeps the stats.
+4. Change the seconds or options, or tap **Start by hand** to test.
 
 Several phones can be connected at the same time.
 
@@ -173,4 +172,3 @@ Several phones can be connected at the same time.
 | Segments light up wrong | Check the display pinout (see above). |
 | Phone loses the Wi-Fi | Stay closer (the SuperMini has a small antenna), or check that the phone didn't switch back to your home Wi-Fi. |
 | Power bank switches off by itself | Some power banks do this at low current. Try another one. |
-| Stats are gone | Stats are kept until the box loses power. The seconds and options are saved permanently. |

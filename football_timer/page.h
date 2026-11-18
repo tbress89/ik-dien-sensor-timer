@@ -12,7 +12,7 @@ const char PAGE[] PROGMEM = R"rawliteral(<!doctype html>
 <style>
 :root{
   --bg:#f1f5f9; --card:#ffffff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0;
-  --idle:#64748b; --wait:#d97706; --ready:#16a34a; --run:#2563eb; --goal:#16a34a; --bad:#dc2626;
+  --idle:#64748b; --wait:#d97706; --ready:#16a34a; --run:#2563eb; --bad:#dc2626;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#0b1120; --card:#151e31; --text:#f1f5f9; --muted:#94a3b8; --line:#26324a; }
@@ -32,7 +32,7 @@ h1{font-size:18px;margin:0;white-space:nowrap}
 .hero{border-radius:20px;padding:18px 16px 20px;color:#fff;text-align:center;
   background:var(--idle);transition:background .2s}
 .hero.wait{background:var(--wait)} .hero.ready{background:var(--ready)}
-.hero.run{background:var(--run)} .hero.goal{background:var(--goal)} .hero.bad{background:var(--bad)}
+.hero.run{background:var(--run)} .hero.bad{background:var(--bad)}
 .label{font-size:20px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .sub{font-size:14px;opacity:.9;min-height:20px}
 .big{font-size:min(34vw,170px);font-weight:800;line-height:1;margin:6px 0 10px;
@@ -45,8 +45,6 @@ button{font:inherit;border:0;border-radius:14px;padding:16px 12px;font-weight:70
   background:var(--card);color:var(--text);border:1px solid var(--line)}
 button:active{transform:scale(.98)}
 button:disabled{opacity:.4}
-.btn-goal{background:var(--goal);color:#fff;border:0;font-size:22px;padding:26px 12px}
-.btn-miss{background:var(--bad);color:#fff;border:0;font-size:22px;padding:26px 12px}
 .hidden{display:none!important}
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-top:14px}
@@ -60,13 +58,6 @@ button:disabled{opacity:.4}
 .toggle input{width:22px;height:22px;accent-color:var(--run)}
 .note{font-size:13px;color:var(--muted);margin-top:6px}
 
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
-.stats b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
-.stats span{font-size:12px;color:var(--muted)}
-ul{list-style:none;margin:10px 0 0;padding:0}
-li{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
-li .g{color:var(--goal);font-weight:700} li .m{color:var(--bad);font-weight:700} li .t{color:var(--wait);font-weight:700}
-.empty{color:var(--muted);font-size:14px}
 .links{display:flex;gap:10px;margin-top:10px}
 .links button{flex:1;padding:12px;font-weight:600;font-size:14px}
 
@@ -99,13 +90,9 @@ li .g{color:var(--goal);font-weight:700} li .m{color:var(--bad);font-weight:700}
     <div class="bar"><div id="barFill"></div></div>
   </section>
 
-  <div class="row" id="runBtns">
-    <button class="btn-goal" data-cmd="goal">GOAL</button>
-    <button class="btn-miss" data-cmd="miss">MISS</button>
-  </div>
-  <div class="row" id="idleBtns">
+  <div class="row">
     <button id="armBtn" data-cmd="arm">Arm</button>
-    <button data-cmd="start">Start by hand</button>
+    <button id="startBtn" data-cmd="start">Start by hand</button>
   </div>
 
   <section class="card">
@@ -124,21 +111,9 @@ li .g{color:var(--goal);font-weight:700} li .m{color:var(--bad);font-weight:700}
     <label class="toggle">Beep on the last 3 seconds <input type="checkbox" id="optTicks"></label>
     <label class="toggle">Buzzer on the box <input type="checkbox" id="optBuzz"></label>
     <label class="toggle">Sound on this phone <input type="checkbox" id="optPhone"></label>
-  </section>
-
-  <section class="card">
-    <h2>This session</h2>
-    <div class="stats">
-      <div><b id="sN">0</b><span>attempts</span></div>
-      <div><b id="sG">0</b><span>goals</span></div>
-      <div><b id="sPct">–</b><span>scored</span></div>
-      <div><b id="sAvg">–</b><span>avg time</span></div>
-    </div>
-    <div class="note" id="sBest"></div>
-    <ul id="list"></ul>
     <div class="links">
       <button data-cmd="test">Test buzzer</button>
-      <button id="resetBtn">Reset stats</button>
+      <button id="testPhone">Test phone sound</button>
     </div>
   </section>
 </main>
@@ -173,8 +148,6 @@ const SOUND = {
   start:   () => tone(880, 0.15, 'square', 0.3),
   tick:    () => tone(660, 0.08, 'square', 0.3),
   timeout: () => { tone(233, 1.1, 'sawtooth', 0.35); tone(311, 1.1, 'sawtooth', 0.35); buzz([400, 100, 400]); },
-  goal:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'triangle', 0.5, i * 0.12)),
-  miss:    () => { tone(330, 0.25, 'square', 0.3); tone(247, 0.35, 'square', 0.3, 0.25); },
 };
 function buzz(p) { if (phoneSound && navigator.vibrate) navigator.vibrate(p); }
 
@@ -217,8 +190,6 @@ function apply(s) {
 }
 
 /* ---------------- drawing ---------------- */
-const fmt = ms => (ms / 1000).toFixed(2) + ' s';
-
 function heroInfo() {
   if (!online && !S) return ['wait', 'Connecting…', 'Join the Wi-Fi “FootballTimer”'];
   switch (S.st) {
@@ -226,12 +197,7 @@ function heroInfo() {
     case 'armed':   return S.ready ? ['ready', 'Ready', 'Dribble past the sensor']
                                    : ['wait', 'Waiting', 'Clear the sensor…'];
     case 'running': return ['run', 'Go!', 'Score!'];
-    default: {
-      const r = S.res[0] || {};
-      if (r.t === 'goal') return ['goal', 'Goal!', 'in ' + fmt(r.ms)];
-      if (r.t === 'miss') return ['bad', 'Missed', ''];
-      return ['bad', 'Time up', ''];
-    }
+    default:        return ['bad', 'Time up', S.set.rearm ? 'Re-arming…' : 'Tap Arm or press the knob'];
   }
 }
 
@@ -243,8 +209,7 @@ function renderStatic() {
   $('sub').textContent = sub;
 
   const running = S.st === 'running';
-  $('runBtns').classList.toggle('hidden', !running);
-  $('idleBtns').classList.toggle('hidden', running);
+  $('startBtn').disabled = running;
   const paused = S.st === 'idle';
   $('armBtn').textContent = paused ? 'Arm' : 'Pause';
   $('armBtn').dataset.cmd = paused ? 'arm' : 'pause';
@@ -260,20 +225,6 @@ function renderStatic() {
 
   $('sensorDot').className = 'dot ' + (S.sensor ? 'hit' : 'on');
   $('sensorTxt').textContent = S.sensor ? 'Blocked' : 'Clear';
-
-  $('sN').textContent = S.n;
-  $('sG').textContent = S.g;
-  $('sPct').textContent = S.n ? Math.round(100 * S.g / S.n) + '%' : '–';
-  $('sAvg').textContent = S.g ? (S.avg / 1000).toFixed(1) + 's' : '–';
-  $('sBest').textContent = S.best ? 'Fastest goal: ' + fmt(S.best) : '';
-
-  const names = { goal: ['g', 'Goal'], miss: ['m', 'Miss'], timeout: ['t', 'Time up'] };
-  $('list').innerHTML = S.res.length
-    ? S.res.map((r, i) => {
-        const [c, n] = names[r.t] || ['', r.t];
-        return '<li><span>#' + (S.n - i) + ' <span class="' + c + '">' + n + '</span></span><span>' + fmt(r.ms) + '</span></li>';
-      }).join('')
-    : '<li class="empty">No attempts yet.</li>';
 }
 
 function frame() {
@@ -287,8 +238,7 @@ function frame() {
         lastTickSec = sec;
       }
     } else if (S.st === 'done') {
-      const r = S.res[0];
-      rem = r && r.t !== 'timeout' ? Math.max(0, S.dur - r.ms) : 0;
+      rem = 0;
     }
     $('big').textContent = (rem / 1000).toFixed(1);
     $('barFill').style.width = (100 * rem / S.dur) + '%';
@@ -310,7 +260,7 @@ $('optPhone').onchange = e => {
   phoneSound = e.target.checked;
   try { localStorage.setItem('phoneSound', phoneSound ? '1' : '0'); } catch (err) {}
 };
-$('resetBtn').onclick = () => { if (confirm('Clear all attempts and stats?')) cmd('reset'); };
+$('testPhone').onclick = () => { audio(); SOUND.timeout(); };
 
 setOnline(false);
 poll();

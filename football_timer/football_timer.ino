@@ -10,7 +10,7 @@
       hold 1 s = start the timer by hand (for testing)
   On the phone (optional):
     - Connect to Wi-Fi "FootballTimer", open http://192.168.4.1
-    - Live countdown, GOAL / MISS buttons, stats, horn sound
+    - Live countdown, settings, horn sound
 
   Board:  "ESP32C3 Dev Module" (esp32 by Espressif), USB CDC On Boot: Enabled
   No extra libraries needed.
@@ -61,7 +61,6 @@ WebServer server(80);
 Preferences prefs;
 
 enum State : uint8_t { ST_IDLE, ST_ARMED, ST_RUNNING, ST_DONE };
-enum Result : uint8_t { R_GOAL, R_MISS, R_TIMEOUT };
 struct Beep { uint16_t on, off; };   // declared up here for Arduino's auto-prototypes
 
 const char* stateName(State s) {
@@ -71,9 +70,6 @@ const char* stateName(State s) {
     case ST_RUNNING: return "running";
     default:         return "done";
   }
-}
-const char* resultName(uint8_t r) {
-  return r == R_GOAL ? "goal" : r == R_MISS ? "miss" : "timeout";
 }
 
 // ---- settings (saved in flash) ----
@@ -89,7 +85,6 @@ State state = ST_IDLE;
 bool ready = false;          // armed AND sensor has been clear long enough
 uint32_t runStart = 0;
 uint32_t doneAt = 0;
-uint8_t lastResult = R_TIMEOUT;
 uint32_t lastTickSec = 99;
 
 bool sensorRaw = false;      // true = sensor sees something
@@ -98,13 +93,6 @@ uint32_t clearStart = 0;
 
 uint32_t eventId = 0;
 const char* eventType = "";
-
-// ---- history & stats ----
-const uint8_t HIST = 20;
-struct Attempt { uint8_t r; uint32_t ms; };
-Attempt history[HIST];
-uint8_t histCount = 0, histHead = 0;
-uint32_t statAttempts = 0, statGoals = 0, statGoalMsSum = 0, statBestMs = 0;
 
 // ============================ BUZZER ============================
 // Non-blocking beep patterns so the web server and sensor keep running.
@@ -151,8 +139,7 @@ void updateBuzzer() {
 const Beep BEEP_START[]   = {{120, 0}};
 const Beep BEEP_TICK[]    = {{60, 0}};
 const Beep BEEP_TIMEOUT[] = {{1000, 0}};
-const Beep BEEP_GOAL[]    = {{80, 60}, {80, 60}, {300, 0}};
-const Beep BEEP_MISS[]    = {{200, 120}, {200, 0}};
+const Beep BEEP_TEST[]    = {{80, 60}, {80, 60}, {300, 0}};
 const Beep BEEP_ARMED[]   = {{40, 0}};
 const Beep BEEP_CLICK[]   = {{8, 0}};
 
@@ -167,7 +154,6 @@ const Beep BEEP_CLICK[]   = {{8, 0}};
 const uint8_t DIGITS[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
 const uint8_t SEG_DASH  = 0x40;   // -
 const uint8_t SEG_P     = 0x73;   // P (paused)
-const uint8_t SEG_G     = 0x3D;   // G (goal)
 const uint8_t SEG_BLANK = 0x00;
 
 uint8_t shownSegs = 0xFF;
@@ -250,29 +236,11 @@ void startAttempt() {
   playPattern(BEEP_START, 1);
 }
 
-void finishAttempt(Result r) {
-  uint32_t ms = millis() - runStart;
-  uint32_t durMs = (uint32_t)cfg.durationS * 1000;
-  if (r == R_TIMEOUT || ms > durMs) ms = durMs;
-
-  history[histHead] = {(uint8_t)r, ms};
-  histHead = (histHead + 1) % HIST;
-  if (histCount < HIST) histCount++;
-
-  statAttempts++;
-  if (r == R_GOAL) {
-    statGoals++;
-    statGoalMsSum += ms;
-    if (statBestMs == 0 || ms < statBestMs) statBestMs = ms;
-  }
-
+void finishAttempt() {   // time is up
   state = ST_DONE;
   doneAt = millis();
-  lastResult = r;
-  fireEvent(resultName(r));
-  if (r == R_GOAL)      playPattern(BEEP_GOAL, 3);
-  else if (r == R_MISS) playPattern(BEEP_MISS, 2);
-  else                  playPattern(BEEP_TIMEOUT, 1);
+  fireEvent("timeout");
+  playPattern(BEEP_TIMEOUT, 1);
 }
 
 void readSensor(uint32_t now) {
@@ -347,7 +315,7 @@ void updateLogic() {
       uint32_t durMs = (uint32_t)cfg.durationS * 1000;
       uint32_t elapsed = now - runStart;
       if (elapsed >= durMs) {
-        finishAttempt(R_TIMEOUT);
+        finishAttempt();
         break;
       }
       uint32_t remaining = durMs - elapsed;
@@ -389,7 +357,7 @@ void updateDisplay() {
         break;
       }
       default:  // ST_DONE
-        segs = blinkSlow ? (lastResult == R_GOAL ? SEG_G : DIGITS[0]) : SEG_BLANK;
+        segs = blinkSlow ? DIGITS[0] : SEG_BLANK;              // time up
         break;
     }
   }
@@ -438,7 +406,7 @@ String stateJson() {
   }
 
   String j;
-  j.reserve(900);
+  j.reserve(300);
   j += "{\"st\":\"";  j += stateName(state);
   j += "\",\"ready\":"; j += ready ? "true" : "false";
   j += ",\"sensor\":";  j += sensorRaw ? "true" : "false";
@@ -447,22 +415,11 @@ String stateJson() {
   j += ",\"max\":";     j += MAX_SECONDS;
   j += ",\"ev\":";      j += eventId;
   j += ",\"evt\":\"";   j += eventType;
-  j += "\",\"n\":";     j += statAttempts;
-  j += ",\"g\":";       j += statGoals;
-  j += ",\"avg\":";     j += statGoals ? statGoalMsSum / statGoals : 0;
-  j += ",\"best\":";    j += statBestMs;
-  j += ",\"set\":{\"dur\":"; j += cfg.durationS;
+  j += "\",\"set\":{\"dur\":"; j += cfg.durationS;
   j += ",\"rearm\":";   j += cfg.autoRearm ? "true" : "false";
   j += ",\"ticks\":";   j += cfg.ticks ? "true" : "false";
   j += ",\"buzz\":";    j += cfg.buzzer ? "true" : "false";
-  j += "},\"res\":[";
-  for (uint8_t i = 0; i < histCount && i < 10; i++) {
-    const Attempt& a = history[(histHead + HIST - 1 - i) % HIST];
-    if (i) j += ",";
-    j += "{\"t\":\""; j += resultName(a.r);
-    j += "\",\"ms\":"; j += a.ms; j += "}";
-  }
-  j += "]}";
+  j += "}}";
   return j;
 }
 
@@ -470,19 +427,12 @@ void handleCmd() {
   String c = server.arg("c");
   if (c == "start") {
     if (state != ST_RUNNING) startAttempt();
-  } else if (c == "goal") {
-    if (state == ST_RUNNING) finishAttempt(R_GOAL);
-  } else if (c == "miss") {
-    if (state == ST_RUNNING) finishAttempt(R_MISS);
   } else if (c == "arm") {
     if (state != ST_RUNNING) setArmed();
   } else if (c == "pause") {
     setIdle();
-  } else if (c == "reset") {
-    histCount = histHead = 0;
-    statAttempts = statGoals = statGoalMsSum = statBestMs = 0;
   } else if (c == "test") {
-    playPattern(BEEP_GOAL, 3);
+    playPattern(BEEP_TEST, 3);
   } else {
     server.send(400, "text/plain", "unknown command");
     return;
