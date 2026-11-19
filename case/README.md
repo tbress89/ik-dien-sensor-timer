@@ -11,8 +11,8 @@ A 3D-printable case for the shot timer. It's parametric: change a few numbers in
 
 | File | What | Print orientation |
 |---|---|---|
-| [`stl/box.stl`](stl/box.stl) | Bottom shell: sensor hole, clip pockets, tripod nut pocket, drain holes | as exported (opening up) |
-| [`stl/lid.stl`](stl/lid.stl) | Lid with 2 snap clips: display window, knob hole, buzzer holes, "- SEC +" label | as exported (**top face down**, clips pointing up) |
+| [`stl/box.stl`](stl/box.stl) | Bottom shell: sensor hole, clip pockets, tripod nut pocket, switch placeholder, drain holes | as exported (opening up) |
+| [`stl/lid.stl`](stl/lid.stl) | Lid with 2 snap clips: display window (knock-out), knob hole, buzzer holes, "- SEC +" label | as exported (**top face down**, clips pointing up) |
 | [`stl/hood.stl`](stl/hood.stl) | Sun shield for the sensor | as exported (standing up) |
 
 **No supports needed** for any part.
@@ -54,7 +54,8 @@ The box grows or shrinks with it.
    covers the nut so the nut can't fall out. The ridge keeps it out of the sensor's space.
 4. **Breadboard** on top of the power bank, with velcro.
 5. **Lid, from below:**
-   - **Display:** push it into the frame until it sits behind the window. Mount it so the
+   - **Display:** first open the window (see *Display window* below). Then push the
+     display into the frame until it sits behind the window. Mount it so the
      digit reads the same way as the text on the lid. A drop of hot glue holds it.
    - **Knob:** push the shaft up through the hole and hot-glue the encoder board in place
      (this model has no thread for a nut).
@@ -88,11 +89,40 @@ Too stiff or too loose? Change `clip_t` (arm thickness, default 1.8 mm) or `clip
 The front of the box (sensor side) faces the path the players dribble along. The sensor
 sits 45 mm above the ground; change `sensor_z` if you want it higher.
 
-## Optional
+## Display window: sealed until you need it
 
-- **Switch in the back wall:** set `with_switch = true` for a cut-out that fits a KCD11
-  mini rocker switch. You then have to wire the switch into the 5V line from the power
-  bank, which means cutting a USB cable and soldering.
+The display window is printed **closed**, like the switch placeholder: from the top the lid
+is smooth, and from below a groove inside the display frame outlines the 10.6 × 17 mm
+window, leaving only 0.4 mm (two layers) of plastic.
+
+To open it, cut along the groove from below with a hobby knife and push the piece out.
+Clean the edges with the knife.
+
+Set `display = "open"` in `case.scad` to print the window already cut through.
+
+## On/off switch: ready for later
+
+The box comes with a **sealed placeholder** for a KCD11 mini rocker switch (hole
+19 × 13 mm, the common small size). It sits in the long side wall, next to the sensor, at
+the same height as the sensor. There's free space behind it there, and it's out of the
+ball's way.
+
+From the outside the wall looks closed. From the inside you see a thinner panel with the
+switch hole outlined by a groove. Until you add a switch, the box stays watertight.
+
+**Adding the switch later:**
+
+1. Lid off. Cut along the groove from the inside with a hobby knife; only 0.6 mm is
+   left there. Clean the edges with the knife or a small file.
+2. Push the switch in from the outside until it clicks. The wall is thinned to 2 mm
+   around the hole because these switches' clips grip thin panels. Loose? Add a drop of glue.
+3. Wire it into the **5V line** between the power bank and the ESP32. Cut the plus wire
+   (usually red) of a USB cable and solder its two ends to the switch's two pins, then insulate them with
+   heat-shrink tubing. Then route the cable from the power bank to the switch (in the
+   sensor zone) and on to the ESP32.
+
+`switch` in `case.scad` takes `"knockout"` (default), `"open"` (hole already cut through,
+if you know you'll fit the switch right away) or `"none"`.
 
 ## Editing and exporting
 

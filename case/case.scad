@@ -2,7 +2,7 @@
 // ------------------------------------------------------------------
 // Three parts:
 //   box   the bottom shell: sensor hole, clip pockets, tripod nut pocket
-//   lid   display window, knob hole, buzzer holes, snap clips (no screws)
+//   lid   display window (knock-out), knob hole, buzzer holes, snap clips (no screws)
 //   hood  sun shield that slides over the sensor (IR sensors hate sunlight)
 //
 // Export one part at a time (or use the Makefile-style commands in README):
@@ -29,6 +29,10 @@ sensor_z    = 45;              // sensor centre above the ground
 display_body   = [12.7, 19.1]; // 0.56" single digit, outside size
 display_window = [10.6, 17.0]; // visible opening in the lid
 display_x      = 85;           // centre, measured from the front (sensor) face
+display        = "knockout";   // "knockout": window sealed, outlined by a groove from below,
+                               //             cut it out with a hobby knife when you fit the display
+                               // "open":     window cut through already
+display_skin   = 0.4;          // what's left of the lid in the knock-out groove
 encoder_hole   = 7.5;          // knob shaft / bushing
 encoder_x      = 122;
 buzzer_x       = 32;
@@ -60,8 +64,18 @@ tripod_nut_h  = 5.8;           // pocket depth (nut is 5.6 = 7/32")
 tripod_hole   = 6.9;           // screw passes freely (1/4" = 6.35)
 tripod_block  = 5;             // block height above the floor = how far the power bank is raised
 
-with_switch = false;           // cut-out for a KCD11 mini rocker switch in the back wall
-switch_cut  = [19.2, 13.2];
+/* ================= on/off switch (KCD11 mini rocker) ================ */
+// Sits in the side wall next to the sensor, where the box has free space.
+//   "knockout"  a sealed placeholder: the wall is thin there, with the hole outlined from
+//               the inside. Cut along the outline with a hobby knife when you add the switch.
+//   "open"      the hole is cut through already
+//   "none"      nothing
+switch       = "knockout";
+switch_cut   = [19.2, 13.2];   // hole, horizontal × vertical
+switch_x     = 24;             // centre, measured from the front (sensor) face
+switch_z     = 45;             // centre above the ground
+switch_panel = 2;              // wall thickness around the switch (its clips need a thin panel)
+switch_skin  = 0.6;            // what's left of the wall in the knock-out groove
 
 /* ================= sun hood ========================================= */
 hood_id  = 33;                 // clears the outer M18 nut
@@ -106,10 +120,18 @@ module box_body() {
     // drain holes in the sensor zone
     for (y = [wall + 14, outer.y - wall - 14])
       translate([wall + 12, y, -1]) cylinder(d = 3, h = floor_t + 2);
-    // optional switch
-    if (with_switch)
-      translate([outer.x - wall - 1, outer.y / 2 - switch_cut.x / 2, box_h - 22 - switch_cut.y / 2])
-        cube([wall + 2, switch_cut.x, switch_cut.y]);
+    // on/off switch (in the front long wall, y = 0)
+    if (switch != "none") translate([switch_x, 0, switch_z]) {
+      // thinner panel around the switch, from the inside
+      translate([-switch_cut.x / 2 - 3, switch_panel, -switch_cut.y / 2 - 3]) cube([switch_cut.x + 6, wall, switch_cut.y + 6]);
+      if (switch == "open")
+        translate([-switch_cut.x / 2, -1, -switch_cut.y / 2]) cube([switch_cut.x, wall + 2, switch_cut.y]);
+      else   // knock-out: a groove along the outline, leaving a thin skin on the outside
+        translate([0, switch_skin, 0]) difference() {
+          translate([-switch_cut.x / 2, 0, -switch_cut.y / 2]) cube([switch_cut.x, wall, switch_cut.y]);
+          translate([-switch_cut.x / 2 + 0.8, -1, -switch_cut.y / 2 + 0.8]) cube([switch_cut.x - 1.6, wall + 2, switch_cut.y - 1.6]);
+        }
+    }
     // pockets the clip hooks snap into (one in each long wall)
     for (side = [0, 1]) clip_side(side)
       translate([-(clip_w + 1) / 2, -1, box_h - clip_catch - 3.5]) cube([clip_w + 1, 1 + clip_hook + 0.4, 3.7]);
@@ -170,7 +192,13 @@ module lid() {
         square(display_body + [0.3, 0.3] + [2.4, 2.4], center = true);
     }
     // display: window + pocket
-    translate([display_x, cy, -1]) linear_extrude(lid_t + 2) square(display_window, center = true);
+    if (display == "open")
+      translate([display_x, cy, -1]) linear_extrude(lid_t + 2) square(display_window, center = true);
+    else   // knock-out: groove along the window outline, thin skin left on the top face
+      translate([display_x, cy, -1]) linear_extrude(lid_t + 1 - display_skin) difference() {
+        square(display_window, center = true);
+        square(display_window - [1.6, 1.6], center = true);
+      }
     translate([display_x, cy, -7]) linear_extrude(7 + lid_t - 0.8) square(display_body + [0.3, 0.3], center = true);
     // knob
     translate([encoder_x, cy, -1]) cylinder(d = encoder_hole, h = lid_t + 2);
@@ -225,9 +253,12 @@ module d_encoder() {
   translate([encoder_x - 6.25, outer.y / 2 - 6.25, box_h - 11.4]) cube([12.5, 12.5, 11.4]);
 }
 module d_buzzer() { translate([buzzer_x - 11, outer.y / 2 - 6.5, box_h - 12]) cube([22, 13, 12]); }
+module d_switch() {   // KCD11 body + soldered terminals behind the panel (only when fitted)
+  if (switch != "none") translate([switch_x - 9, wall + 0.01, switch_z - 6.25]) cube([18, 18, 12.5]);
+}
 
 module dummies() {
-  d_powerbank(); d_breadboard(); d_sensor(); d_display(); d_encoder(); d_buzzer(); d_nut();
+  d_powerbank(); d_breadboard(); d_sensor(); d_display(); d_encoder(); d_buzzer(); d_nut(); d_switch();
 }
 module lid_in_place() { translate([0, 0, box_h]) lid(); }
 module hood_in_place() { translate([0, outer.y / 2, sensor_z]) rotate([0, -90, 0]) hood(); }
@@ -256,4 +287,4 @@ else if (part == "check_box")    intersection() { box(); union() {
                                    translate([0, 0, 0.01]) lid_in_place();
                                    translate([-0.01, 0, 0]) hood_in_place(); } }
 else if (part == "check_lid")    intersection() { lid_in_place(); union() { d_powerbank(); d_breadboard(); d_sensor(); } }
-else if (part == "check_inside") intersection() { union() { d_display(); d_encoder(); d_buzzer(); } union() { d_powerbank(); d_breadboard(); d_sensor(); } }
+else if (part == "check_inside") intersection() { union() { d_display(); d_encoder(); d_buzzer(); d_switch(); } union() { d_powerbank(); d_breadboard(); d_sensor(); } }
