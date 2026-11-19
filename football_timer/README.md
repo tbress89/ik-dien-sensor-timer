@@ -4,6 +4,7 @@ A player dribbles past the sensor → a countdown starts → score before it hit
 
 - **On the box:** a 1-digit display shows the seconds, a knob sets them (1–9 s), a buzzer beeps.
 - **On the phone (optional):** live countdown, settings and a loud horn.
+- **Case:** a 3D-printable case is in [`../case`](../case/README.md).
 
 ---
 
