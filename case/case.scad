@@ -1,8 +1,8 @@
 // Football Shot Timer — 3D-printable case
 // ------------------------------------------------------------------
 // Three parts:
-//   box   the bottom shell: sensor hole, screw pillars, tent-peg tabs
-//   lid   display window, knob hole, buzzer holes, labels
+//   box   the bottom shell: sensor hole, clip pockets, tripod nut pocket
+//   lid   display window, knob hole, buzzer holes, snap clips (no screws)
 //   hood  sun shield that slides over the sensor (IR sensors hate sunlight)
 //
 // Export one part at a time (or use the Makefile-style commands in README):
@@ -41,12 +41,24 @@ lip_h    = 4;                  // lip on the lid that drops into the box
 clear    = 0.4;                // gap between lip and walls (printer tolerance)
 corner_r = 6;
 
-pillar_d    = 9;
-screw_pilot = 2.6;             // M3 self-tapping into the pillar
-screw_clear = 3.4;
-screw_head  = 6.5;             // counterbore for M3 pan / cap heads
+/* ================= snap clips (lid ↔ box, no tools) ================= */
+// One clip on each long side. To open: pull both finger tabs outward and lift.
+clip_w     = 22;               // width of a clip arm
+clip_t     = 1.8;              // arm thickness (thinner = easier to open)
+clip_len   = 20;               // arm length below the lid
+clip_hook  = 1.2;              // how far the hook reaches into the box wall
+clip_catch = 13;               // hook's catch face, below the lid underside
+clip_gap   = 0.3;              // gap between arm and box wall
 
-peg_hole = 7;                  // tent peg
+/* ================= tripod mount (standard 1/4"-20 thread) =========== */
+// A regular 1/4"-20 hex nut drops into a pocket in the floor, from the inside.
+// The tripod screw comes up through the floor and pulls the nut down onto it.
+// The power bank rests on the nut block and two rails, so it holds the nut in place.
+tripod_mount = true;
+tripod_nut_af = 11.5;          // across flats (nut is 11.1 = 7/16")
+tripod_nut_h  = 5.8;           // pocket depth (nut is 5.6 = 7/32")
+tripod_hole   = 6.9;           // screw passes freely (1/4" = 6.35)
+tripod_block  = 5;             // block height above the floor = how far the power bank is raised
 
 with_switch = false;           // cut-out for a KCD11 mini rocker switch in the back wall
 switch_cut  = [19.2, 13.2];
@@ -60,12 +72,13 @@ hood_len = 32;
 $fn = 64;
 
 rib   = 2;                                         // stop that keeps the power bank out of the sensor zone
-inner = [sensor_zone + rib + powerbank.x + 10, powerbank.y + 7];  // +10: 1 mm gap + room for the rear pillars
+inner = [sensor_zone + rib + powerbank.x + 2, powerbank.y + 7];  // +2: 1 mm gap at each end of the power bank
 outer = [inner.x + 2 * wall, inner.y + 2 * wall];
 box_h = floor_t + inner_h;
-
-p_in  = wall + pillar_d / 2 - 1;                   // pillar centres (overlap the walls by 1 mm)
-pillars = [for (x = [p_in, outer.x - p_in]) for (y = [p_in, outer.y - p_in]) [x, y]];
+pb_lift = tripod_mount ? tripod_block : 0;          // power bank sits this much above the floor
+pb_x0   = wall + sensor_zone + rib + 1;             // power bank's front end
+pb_y0   = wall + (inner.y - powerbank.y) / 2;
+mount   = [outer.x / 2, outer.y / 2];               // tripod screw: middle of the box
 
 module rrect(size, r, h) {
   linear_extrude(h) offset(r) offset(-r) square(size);
@@ -73,23 +86,19 @@ module rrect(size, r, h) {
 
 /* ------------------------------ box ------------------------------- */
 
-module peg_tab() {   // sticks out in -y from the wall at y = 0
+module box() {
   difference() {
-    hull() {
-      translate([-13, -0.5, 0]) cube([26, 1, 4]);
-      translate([0, -15, 0]) cylinder(r = 8, h = 4);
+    box_body();
+    if (tripod_mount) translate([mount.x, mount.y, 0]) {
+      translate([0, 0, floor_t + tripod_block - tripod_nut_h]) cylinder(d = tripod_nut_af / cos(30), h = tripod_nut_h + 1, $fn = 6);
+      translate([0, 0, -1]) cylinder(d = tripod_hole, h = floor_t + tripod_block + 2);
     }
-    translate([0, -15, -1]) cylinder(d = peg_hole, h = 6);
   }
 }
 
-module box() {
+module box_body() {
   difference() {
-    union() {
-      rrect(outer, corner_r, box_h);
-      translate([outer.x / 2, 0, 0]) peg_tab();
-      translate([outer.x / 2, outer.y, 0]) mirror([0, 1, 0]) peg_tab();
-    }
+    rrect(outer, corner_r, box_h);
     // cavity
     translate([wall, wall, floor_t]) rrect(inner, corner_r - wall, box_h);
     // sensor hole in the front wall
@@ -101,15 +110,45 @@ module box() {
     if (with_switch)
       translate([outer.x - wall - 1, outer.y / 2 - switch_cut.x / 2, box_h - 22 - switch_cut.y / 2])
         cube([wall + 2, switch_cut.x, switch_cut.y]);
+    // pockets the clip hooks snap into (one in each long wall)
+    for (side = [0, 1]) clip_side(side)
+      translate([-(clip_w + 1) / 2, -1, box_h - clip_catch - 3.5]) cube([clip_w + 1, 1 + clip_hook + 0.4, 3.7]);
   }
-  // screw pillars
-  for (p = pillars) translate([p.x, p.y, 0])
-    difference() {
-      cylinder(d = pillar_d, h = box_h);
-      translate([0, 0, box_h - 14]) cylinder(d = screw_pilot, h = 15);
-    }
   // power bank stop
-  translate([wall + sensor_zone, wall + 8, floor_t]) cube([rib, inner.y - 16, 6]);
+  translate([wall + sensor_zone, wall + 8, floor_t]) cube([rib, inner.y - 16, 6 + pb_lift]);
+  if (tripod_mount) tripod_block();
+}
+
+module tripod_block() {   // nut block + two rails the power bank rests on (holes are cut in box())
+  top = floor_t + tripod_block;
+  translate([mount.x, mount.y, 0]) cylinder(d = tripod_nut_af / cos(30) + 6, h = top);
+  for (y = [pb_y0 + 10, pb_y0 + powerbank.y - 13])
+    translate([pb_x0 - 1, y, 0]) cube([powerbank.x + 1, 3, top]);
+}
+
+/* ------------------------------ clips ----------------------------- */
+// Local frame of a clip: x along the wall (0 = middle), y = 0 is the box's outer wall
+// face, +y points into the box. side 0 = front long wall, side 1 = back long wall.
+module clip_side(side) {
+  if (side == 0) translate([outer.x / 2, 0, 0]) children();
+  else translate([outer.x / 2, outer.y, 0]) mirror([0, 1, 0]) children();
+}
+
+// One clip arm, hanging from the lid. z = 0 is the lid underside.
+module clip_arm() {
+  y0 = -clip_gap - clip_t;          // outside face of the arm
+  rotate([90, 0, 90]) translate([0, 0, -clip_w / 2]) linear_extrude(clip_w)
+    polygon([                       // (y, z) profile
+      [y0, lid_t], [0.01, lid_t], [0.01, 0],                     // bridge to the lid plate
+      [-clip_gap, 0],
+      [-clip_gap, -clip_catch],                                   // inner face down to the hook
+      [clip_hook, -clip_catch],                                   // flat catch face
+      [clip_hook, -clip_catch - 0.6],
+      [-clip_gap, -clip_catch - 0.6 - (clip_hook + clip_gap) * 1.5], // lead-in slope
+      [-clip_gap, -clip_len],
+      [y0 - 4, -clip_len],                                        // finger tab (45°, prints without support)
+      [y0, -clip_len + 4],
+    ]);
 }
 
 /* ------------------------------ lid ------------------------------- */
@@ -120,11 +159,11 @@ module lid() {
   difference() {
     union() {
       rrect(outer, corner_r, lid_t);
+      for (side = [0, 1]) clip_side(side) clip_arm();
       // lip
       translate([0, 0, -lip_h]) difference() {
         translate([wall + clear, wall + clear]) rrect(inner - [2, 2] * clear, corner_r - wall - clear, lip_h);
         translate([wall + clear + 1.6, wall + clear + 1.6]) rrect(inner - [2, 2] * (clear + 1.6), 1, lip_h + 1);
-        for (p = pillars) translate([p.x, p.y, -1]) cylinder(d = pillar_d + 2 * clear, h = lip_h + 2);
       }
       // frame that holds the display from below
       translate([display_x, cy, -6]) linear_extrude(6)
@@ -140,18 +179,10 @@ module lid() {
       cylinder(d = 2.2, h = lid_t + 2);
       for (a = [0 : 60 : 300]) rotate(a) translate([4.5, 0, 0]) cylinder(d = 2.2, h = lid_t + 2);
     }
-    // screws
-    for (p = pillars) translate([p.x, p.y, -lip_h - 1]) {
-      cylinder(d = screw_clear, h = lid_t + lip_h + 2);
-      translate([0, 0, lip_h + 1 + lid_t - 1.6]) cylinder(d = screw_head, h = 2);
-    }
-    // labels (engraved)
-    translate([0, 0, lid_t - 0.6]) linear_extrude(1) {
-      translate([outer.x / 2, 10]) text("SHOT TIMER", size = 6, halign = "center", valign = "center",
-                                        font = "Liberation Sans:style=Bold");
+    // label (engraved)
+    translate([0, 0, lid_t - 0.6]) linear_extrude(1)
       translate([encoder_x, cy - 15]) text("-  SEC  +", size = 4, halign = "center", valign = "center",
                                            font = "Liberation Sans:style=Bold");
-    }
   }
 }
 
@@ -172,10 +203,16 @@ module hood() {
 /* ------------------------- dummy parts ---------------------------- */
 
 module d_powerbank() {
-  translate([wall + sensor_zone + rib + 1, wall + (inner.y - powerbank.y) / 2, floor_t]) cube(powerbank);
+  translate([pb_x0, pb_y0, floor_t + pb_lift]) cube(powerbank);
+}
+module d_nut() {   // 1/4"-20 nut + the tripod screw (6 mm long) coming up through the floor
+  if (tripod_mount) translate([mount.x, mount.y, 0]) {
+    translate([0, 0, floor_t + tripod_block - tripod_nut_h]) cylinder(d = 11.1 / cos(30), h = 5.6, $fn = 6);
+    translate([0, 0, -0.01]) cylinder(d = 6.3, h = 6);
+  }
 }
 module d_breadboard() {   // breadboard + ESP32 + wires, on top of the power bank
-  translate([wall + sensor_zone + rib + 1 + (powerbank.x - 84) / 2, wall + (inner.y - 55) / 2, floor_t + powerbank.z])
+  translate([wall + sensor_zone + rib + 1 + (powerbank.x - 84) / 2, wall + (inner.y - 55) / 2, floor_t + pb_lift + powerbank.z])
     cube([84, 55, 9 + 13]);
 }
 module d_sensor() {
@@ -190,7 +227,7 @@ module d_encoder() {
 module d_buzzer() { translate([buzzer_x - 11, outer.y / 2 - 6.5, box_h - 12]) cube([22, 13, 12]); }
 
 module dummies() {
-  d_powerbank(); d_breadboard(); d_sensor(); d_display(); d_encoder(); d_buzzer();
+  d_powerbank(); d_breadboard(); d_sensor(); d_display(); d_encoder(); d_buzzer(); d_nut();
 }
 module lid_in_place() { translate([0, 0, box_h]) lid(); }
 module hood_in_place() { translate([0, outer.y / 2, sensor_z]) rotate([0, -90, 0]) hood(); }
